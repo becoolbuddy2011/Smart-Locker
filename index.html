@@ -1,4 +1,4 @@
-<!-- Smart Locker Web Interface - Blynk Cloud API Integrated -->
+<!-- Smart Locker Web Interface - EEPROM + Blynk Logs -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -120,6 +120,20 @@
     .show {
       display: block !important;
     }
+
+    #logs {
+      background-color: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 0.9em;
+    }
+
+    #logs p {
+      margin: 5px 0;
+    }
   </style>
 </head>
 <body>
@@ -156,6 +170,11 @@
       <button onclick="alert('Feature not implemented')">Change Login Info</button>
     </div>
 
+    <div class="card">
+      <h3>📜 Locker Logs (Last 7 Days)</h3>
+      <div id="logs">Loading logs...</div>
+    </div>
+
     <div class="notification" id="notif">
       <p>🔔 Locker Unlocked!</p>
       <button onclick="sendCommand('V4', 1)">🚨 Trigger Alarm</button>
@@ -163,8 +182,8 @@
   </div>
 
   <script>
-    const BLYNK_TOKEN = 'H1X9b3YpVQJCT75rMaNGcJ7W9u09rGKd'; // Put your Blynk token here
-    const BLYNK_API = 'https://blynk.cloud/external/api/update?token=' + BLYNK_TOKEN;
+    const BLYNK_TOKEN = 'H1X9b3YpVQJCT75rMaNGcJ7W9u09rGKd';
+    const API_BASE = 'https://blynk.cloud/external/api';
 
     function login(event) {
       event.preventDefault();
@@ -174,24 +193,36 @@
         document.getElementById('login').style.display = 'none';
         document.getElementById('dashboard').style.display = 'flex';
         document.getElementById('notif').classList.add('show');
+        fetchLogs();
       } else {
         alert('Incorrect credentials');
       }
     }
 
     function sendCommand(pin, value) {
-      fetch(`${BLYNK_API}&${pin}=${value}`)
+      fetch(`${API_BASE}/update?token=${BLYNK_TOKEN}&${pin}=${value}`)
         .then(res => {
-          if (res.ok) {
-            alert(`✅ Command sent: ${pin} = ${value}`);
-          } else {
-            alert('❌ Failed to send command.');
-          }
+          if (!res.ok) alert('❌ Failed to send command.');
         })
-        .catch(err => {
-          alert('❌ Error: ' + err);
-        });
+        .catch(err => alert('❌ Error: ' + err));
     }
+
+    async function fetchLogs() {
+      try {
+        const response = await fetch(`${API_BASE}/logs?token=${BLYNK_TOKEN}`);
+        const data = await response.json();
+        const now = Date.now() / 1000;
+        const logs = data.filter(log => now - log.timestamp <= 7 * 24 * 3600);
+        const logsHTML = logs.reverse().map(log =>
+          `<p>[${new Date(log.timestamp * 1000).toLocaleString()}] ${log.body}</p>`
+        ).join('');
+        document.getElementById('logs').innerHTML = logsHTML || 'No recent logs.';
+      } catch (e) {
+        document.getElementById('logs').innerHTML = '⚠️ Failed to load logs.';
+      }
+    }
+
+    setInterval(fetchLogs, 15000);
   </script>
 </body>
 </html>
